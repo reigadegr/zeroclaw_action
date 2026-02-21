@@ -164,6 +164,7 @@ jobs:
           cat "$script_file"; ls -al
           is_musl="${{ contains(github.event.inputs.TARGET, 'musl') && 'true' || 'false' }}"
           if [ "$is_musl" = "true" ]; then
+              sed -i 's/relocation-model=pie/relocation-model=static/g' "$script_file"
               sed -i 's/ build / zigbuild /g' "$script_file"
               sed -i 's/,--relax//g' "$script_file"
               sed -i 's/--pack-dyn-relocs=relr,//g' "$script_file"
