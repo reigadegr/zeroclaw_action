@@ -133,7 +133,14 @@ jobs:
           cd common
           rm -rf .cargo/ || echo "无需删除目录"
           mkdir -p .cargo/
-          curl -L https://github.com/reigadegr/zeroclaw_action/raw/main/.cargo/config.toml -o .cargo/config2.toml
+          curl -L \
+          --retry 5 \
+          --retry-delay 2 \
+          --retry-max-time 30 \
+          --connect-timeout 10 \
+          --max-time 30 \
+          -o .cargo/config2.toml \
+          https://github.com/reigadegr/zeroclaw_action/raw/main/.cargo/config.toml
           cat .cargo/config2.toml >> .cargo/config.toml
           rm -f .cargo/config2.toml
 
@@ -147,7 +154,13 @@ jobs:
 
           url="https://github.com/reigadegr/zeroclaw_action/raw/main/script/$script_file"
           echo "脚本直链: $url"
-          curl -L $url -o "$script_file"
+          curl -L \
+          --retry 5 \
+          --retry-delay 2 \
+          --retry-max-time 30 \
+          --connect-timeout 10 \
+          --max-time 30 \
+          -o "$script_file" $url 
           cat "$script_file"; ls -al
           is_musl="${{ contains(github.event.inputs.TARGET, 'musl') && 'true' || 'false' }}"
           if [ "$is_musl" = "true" ]; then
