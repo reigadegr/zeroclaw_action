@@ -1,0 +1,134 @@
+name: update rust dep
+
+on:
+  workflow_dispatch:
+    inputs:
+      TOOLCHAINS:
+        type: choice
+        description: "使用的工具链"
+        required: true
+        default: "stable"
+        options:
+          - "nightly"
+          - "stable"
+      TARGET:
+        type: choice
+        description: "编译的目标三元组"
+        required: true
+        default: "x86_64-unknown-linux-gnu"
+        options:
+          - "x86_64-unknown-linux-gnu"
+          - "aarch64-unknown-linux-gnu"
+          - "x86_64-unknown-linux-musl"
+          - "aarch64-unknown-linux-musl"
+          - "x86_64-pc-windows-msvc"
+          - "aarch64-pc-windows-msvc"
+          - "aarch64-apple-darwin"
+          - "x86_64-apple-darwin"
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  # Optimize build performance
+  CARGO_INCREMENTAL: 0
+  TZ: Asia/Shanghai
+
+jobs:
+  # Build strategy check - determine build type based on trigger
+  build-check:
+    name: Build Strategy Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Debug Show Selected Inputs
+        run: |
+          echo "-----------------------"
+          echo "Selected TOOLCHAINS: ${{ github.event.inputs.TOOLCHAINS }}"
+          echo "Selected TARGET: ${{ github.event.inputs.TARGET }}"
+          echo "-----------------------"
+
+  # Build binaries
+  build-common:
+    name: Build common
+    needs: [build-check]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Platform builds
+          - os: ${{ contains(github.event.inputs.TARGET, 'windows') && 'windows' || (contains(github.event.inputs.TARGET, 'apple') && 'macos' || 'ubuntu') }}-${{ contains(github.event.inputs.TARGET, 'linux') && '24.04' || contains(github.event.inputs.TARGET, 'apple') && 'latest' || contains(github.event.inputs.TARGET, 'aarch64') && '11' || 'latest' }}${{ contains(github.event.inputs.TARGET, 'aarch64') && !contains(github.event.inputs.TARGET, 'apple') && '-arm' || '' }}
+            target: ${{ github.event.inputs.TARGET }}
+    steps:
+      - name: "💾 Checkout repository"
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - name: "⚙️ show Cargo config"
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          [ -f ~/.cargo/config.toml ] && cat ~/.cargo/config.toml || echo "cfg not found"
+
+      - name: "🚀 Setup Rust environment"
+        uses: ./.github/actions/setup
+        with:
+          rust-version: ${{ github.event.inputs.TOOLCHAINS }}
+          target: ${{ matrix.target }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: "⚙️ Configure Git"
+        shell: bash
+        run: |
+          git config --global user.name "reigadegr_action"
+          git config --global user.email "1145141919810@qq.com"
+
+      - name: "🔧 Setup TimeZone"
+        if: runner.os == 'Linux'
+        run: |
+          sudo -E rm -rf /etc/localtime
+          sudo -E ln -s /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+
+      - name: Optimize Memory Management
+        if: runner.os == 'Linux'
+        run: |
+          wget https://github.com/reigadegr/sun_action/raw/main/script/memopt.sh
+          nohup sh memopt.sh >/dev/null 2>&1 &
+
+      - name: "📥 Download github project code"
+        shell: bash
+        run: |
+          export MY_PAT="${{ secrets.MY_PAT }}"
+          git clone --depth 1 https://reigadegr:${MY_PAT}@github.com/reigadegr/claude_proxy_rs common
+
+      - name: "⚙️ Remove configs"
+        shell: bash
+        run: |
+          cd common/
+          rm -rf .cargo/ || echo "无需删除目录"
+        
+      - name: "🔨 Build common"
+        shell: bash
+        run: |
+          cd common/          
+          cargo install cargo-edit
+          cargo update; cargo upgrade -i; 
+          cargo update; cargo upgrade -i;
+          mkdir -p ../${{ github.event.inputs.TARGET }}_module || echo "已有默认目录"
+          git diff > ../"${{ matrix.target }}"_module/commits.txt
+
+      - name: "📤 Upload to GitHub artifacts"
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.event.inputs.TARGET }}_cc_proxy_dep_diff
+          path: ${{ matrix.target }}_module/*
+          retention-days: 3

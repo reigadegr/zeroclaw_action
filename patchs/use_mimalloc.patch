@@ -1,0 +1,10 @@
+diff --git a/src-tauri/src/main.rs b/src-tauri/src/main.rs
+index 1066ad1..25fae3a 100755
+--- a/src-tauri/src/main.rs
++++ b/src-tauri/src/main.rs
+@@ -12,3 +12,5 @@ fn main() {
+     }
+     app_lib::run();
+ }
++#[global_allocator]
++static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
