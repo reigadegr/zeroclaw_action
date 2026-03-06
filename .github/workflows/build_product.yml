@@ -125,7 +125,7 @@ jobs:
         run: |
           # export MY_PAT="${{ secrets.MY_PAT }}"
           # git clone --depth 1 https://reigadegr:${MY_PAT}@github.com/reigadegr/zeroclaw common
-          git clone --depth 1 https://github.com/reigadegr/zeroclaw common -b perf
+          git clone --depth 1 https://github.com/zeroclaw-labs/zeroclaw common
 
       - name: "⚙️ Reset flags"
         shell: bash
